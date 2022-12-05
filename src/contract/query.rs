@@ -1,6 +1,9 @@
 use crate::msg::BidQueryMsg;
-use cosmwasm_std::{Binary, Deps, Env, StdResult};
+use crate::state::OWNER;
+use cosmwasm_std::{to_binary, Binary, Deps, Env, StdResult};
 
-pub fn _query(_deps: Deps, _env: Env, msg: BidQueryMsg) -> StdResult<Binary> {
-    match msg {}
+pub fn _query(deps: Deps, _env: Env, msg: BidQueryMsg) -> StdResult<Binary> {
+    match msg {
+        BidQueryMsg::GetOwner {} => to_binary(&OWNER.load(deps.storage)?),
+    }
 }

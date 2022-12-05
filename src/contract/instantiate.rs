@@ -1,12 +1,23 @@
 use crate::error::BidError;
 use crate::msg::BidInstantiateMsg;
+use crate::state::OWNER;
 use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
 
 pub fn _instantiate(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
-    _msg: BidInstantiateMsg,
+    info: MessageInfo,
+    msg: BidInstantiateMsg,
 ) -> Result<Response, BidError> {
-    Ok(Response::new().add_attribute("method", "instantiate"))
+    let owner = if let Some(owner) = msg.owner {
+        deps.api.addr_validate(owner.as_str())?
+    } else {
+        info.sender
+    };
+
+    OWNER.save(deps.storage, &owner)?;
+
+    Ok(Response::new()
+        .add_attribute("owner", owner)
+        .add_attribute("method", "instantiate"))
 }
