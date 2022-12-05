@@ -1,6 +1,5 @@
-
 use cosmwasm_schema::write_api;
-use cw_bid::msg::{BidInstantiateMsg, BidExecuteMsg, BidMigrateMsg, BidQueryMsg};
+use cw_bid::msg::{BidExecuteMsg, BidInstantiateMsg, BidMigrateMsg, BidQueryMsg};
 
 fn main() {
     write_api! {
