@@ -1,7 +1,7 @@
 version: 2
 workflows:
   version: 2
-  test_and_deploy:
+  lint_and_test:
     jobs:
       - lint
       - wasm-build:
