@@ -1,0 +1,119 @@
+version: 2
+workflows:
+  version: 2
+  test_and_deploy:
+    jobs:
+      - lint
+      - wasm-build:
+          requires:
+            - lint
+      - cw-bid:
+          requires:
+            - lint
+
+jobs:
+  cw-bid:
+    docker:
+      - image: rust:1.63.0
+    working_directory: ~/project/contracts/cw-bid
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - restore_cache:
+          keys:
+            - cargocache-cw721-base-rust:1.63.0-{{ checksum "~/project/Cargo.lock" }}
+      - run:
+          name: Unit Tests
+          environment:
+            RUST_BACKTRACE: 1
+          command: cargo unit-test --locked
+      - run:
+          name: Build and run schema generator
+          command: cargo schema --locked
+      - run:
+          name: Ensure checked-in schemas are up-to-date
+          command: |
+            CHANGES_IN_REPO=$(git status --porcelain)
+            if [[ -n "$CHANGES_IN_REPO" ]]; then
+              echo "Repository is dirty. Showing 'git status' and 'git --no-pager diff' for debugging now:"
+              git status && git --no-pager diff
+              exit 1
+            fi
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target
+          key: cargocache-cw721-base-rust:1.63.0-{{ checksum "~/project/Cargo.lock" }}
+
+  lint:
+    docker:
+      - image: rust:1.63.0
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version; rustup target list --installed
+      - restore_cache:
+          keys:
+            - cargocache-v2-lint-rust:1.63.0-{{ checksum "Cargo.lock" }}
+      - run:
+          name: Add rustfmt component
+          command: rustup component add rustfmt
+      - run:
+          name: Add clippy component
+          command: rustup component add clippy
+      - run:
+          name: Check formatting of workspace
+          command: cargo fmt -- --check
+      - run:
+          name: Clippy linting on workspace
+          command: cargo clippy --all-targets -- -D warnings
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target/debug/.fingerprint
+            - target/debug/build
+            - target/debug/deps
+          key: cargocache-v2-lint-rust:1.63.0-{{ checksum "Cargo.lock" }}
+
+  wasm-build:
+    docker:
+      - image: rust:1.63.0
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - restore_cache:
+          keys:
+            - cargocache-wasm-rust:1.63.0-{{ checksum "~/project/Cargo.lock" }}
+      - run:
+          name: Add wasm32 target
+          command: rustup target add wasm32-unknown-unknown
+      - run:
+          name: Build Wasm Release
+          command: cargo build --release --target wasm32-unknown-unknown --locked
+      - run:
+          name: Install check_contract
+          # Uses --debug for compilation speed
+          command: cargo install --debug --version 1.0.0 --features iterator --example check_contract --locked -- cosmwasm-vm
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target
+          key: cargocache-wasm-rust:1.63.0-{{ checksum "~/project/Cargo.lock" }}
+      - run:
+          name: Check wasm contracts
+          command: |
+            for W in ./target/wasm32-unknown-unknown/release/*.wasm
+            do
+              if [[ "`basename $W`" == 'cw_cosmon_lib.wasm' ]]; then
+                break;
+              fi
+              echo -n "Checking `basename $W`... "
+              check_contract $W
+            done
