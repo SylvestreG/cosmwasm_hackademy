@@ -1,6 +1,6 @@
 use crate::error::BidError;
 use crate::msg::BidInstantiateMsg;
-use crate::state::OWNER;
+use crate::state::{BID_CLOSED, BID_WINNER, DENOM, HIGHEST_BIDDER, OWNER};
 use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
 
 pub fn _instantiate(
@@ -15,7 +15,13 @@ pub fn _instantiate(
         info.sender
     };
 
+    let denom = msg.denom.unwrap_or("uatom".to_string());
+
     OWNER.save(deps.storage, &owner)?;
+    DENOM.save(deps.storage, &denom)?;
+    HIGHEST_BIDDER.save(deps.storage, &None)?;
+    BID_CLOSED.save(deps.storage, &false)?;
+    BID_WINNER.save(deps.storage, &None)?;
 
     Ok(Response::new()
         .add_attribute("owner", owner)

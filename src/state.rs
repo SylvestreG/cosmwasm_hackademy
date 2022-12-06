@@ -1,5 +1,10 @@
-use cosmwasm_std::Addr;
-use cw_storage_plus::Item;
+use cosmwasm_std::{Addr, Uint128};
+use cw_storage_plus::{Item, Map};
 
 pub const OWNER: Item<Addr> = Item::new("OWNER");
-// pub const BID_BY_ADDR: Map<Addr, Uint128> = Map::new("BID_BY_ADDR");
+pub const DENOM: Item<String> = Item::new("DENOM");
+
+pub const BID_BY_ADDR: Map<Addr, Uint128> = Map::new("BID_BY_ADDR");
+pub const HIGHEST_BIDDER: Item<Option<Addr>> = Item::new("HIGHEST_BIDDER");
+pub const BID_CLOSED: Item<bool> = Item::new("BID_CLOSED");
+pub const BID_WINNER: Item<Option<Addr>> = Item::new("BID_WINNER");
