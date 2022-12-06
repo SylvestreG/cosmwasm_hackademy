@@ -18,11 +18,17 @@ pub enum BidError {
     #[error("Bid closed")]
     BidClosed,
 
+    #[error("Bid winner")]
+    BidWinner,
+
     #[error("Bid Already Closed")]
     BidAlreadyClosed,
 
     #[error("Bid Not Closed")]
     BidNotClosed,
+
+    #[error("RetractAlreadyDone")]
+    RetractAlreadyDone,
 
     #[error("Only Owner Can Close")]
     OnlyOwnerCanClose,

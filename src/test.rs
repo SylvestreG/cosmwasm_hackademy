@@ -1,2 +1,1 @@
-mod functional_tests;
-mod helper;
+mod integration_tests;

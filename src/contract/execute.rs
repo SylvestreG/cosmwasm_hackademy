@@ -1,6 +1,9 @@
 use crate::error::BidError;
 use crate::msg::BidExecuteMsg;
-use crate::state::{BID_BY_ADDR, BID_CLOSED, BID_WINNER, DENOM, HIGHEST_BIDDER, OWNER};
+use crate::state::{
+    BID_BY_ADDR, BID_CLOSED, BID_RETRACTED_FOR_ADDR, BID_WINNER, COMMISSION_BY_ADDR, DENOM,
+    HIGHEST_BIDDER, OWNER,
+};
 use cosmwasm_std::{
     has_coins, BankMsg, Coin, CosmosMsg, DepsMut, Env, MessageInfo, Response, Uint128,
 };
@@ -18,7 +21,7 @@ pub fn _execute(
     match msg {
         BidExecuteMsg::Bid {} => bid(deps, info),
         BidExecuteMsg::Close {} => close(deps, info),
-        BidExecuteMsg::Retract {receiver} => retract(deps, info, receiver),
+        BidExecuteMsg::Retract { receiver } => retract(deps, info, receiver),
     }
 }
 
@@ -60,7 +63,7 @@ fn bid(deps: DepsMut, info: MessageInfo) -> Result<Response, BidError> {
     } else {
         Uint128::from(0u128)
     };
-    let mut current_bid = get_bid(info.sender.clone());
+    let current_bid = get_bid(info.sender.clone());
 
     // get the amount of token to send
     let mut new_bid = info
@@ -70,9 +73,19 @@ fn bid(deps: DepsMut, info: MessageInfo) -> Result<Response, BidError> {
         .map(|m| m.amount)
         .sum::<Uint128>();
     new_bid.sub_assign(Uint128::from(CONTRACT_COMMISSION));
-    current_bid.add_assign(new_bid);
+    new_bid.add_assign(current_bid);
 
-    if current_bid <= highest_bid {
+    let mut commission = COMMISSION_BY_ADDR
+        .load(deps.storage, info.sender.clone())
+        .unwrap_or_default();
+
+    if let Some(comission) = &mut commission {
+        comission.add_assign(Uint128::from(CONTRACT_COMMISSION));
+    } else {
+        commission = Some(Uint128::from(CONTRACT_COMMISSION));
+    }
+
+    if new_bid <= highest_bid {
         return Err(BidError::BidTooLow);
     }
 
@@ -84,6 +97,7 @@ fn bid(deps: DepsMut, info: MessageInfo) -> Result<Response, BidError> {
         }],
     });
 
+    COMMISSION_BY_ADDR.save(deps.storage, info.sender.clone(), &commission)?;
     HIGHEST_BIDDER.save(deps.storage, &Some(info.sender.clone()))?;
     BID_BY_ADDR.save(deps.storage, info.sender, &new_bid)?;
 
@@ -93,7 +107,6 @@ fn bid(deps: DepsMut, info: MessageInfo) -> Result<Response, BidError> {
         .add_attribute("commission", CONTRACT_COMMISSION.to_string())
         .add_attribute("method", "bid"))
 }
-
 
 fn close(deps: DepsMut, info: MessageInfo) -> Result<Response, BidError> {
     if BID_CLOSED.load(deps.storage)? {
@@ -105,7 +118,7 @@ fn close(deps: DepsMut, info: MessageInfo) -> Result<Response, BidError> {
     }
 
     let highest_bidder = HIGHEST_BIDDER.load(deps.storage)?;
-    if highest_bidder == None {
+    if highest_bidder.is_none() {
         return Err(BidError::NoBidPresent);
     }
     let highest_bidder = highest_bidder.unwrap();
@@ -127,24 +140,40 @@ fn close(deps: DepsMut, info: MessageInfo) -> Result<Response, BidError> {
         .add_attribute("method", "close"))
 }
 
-fn retract(deps: DepsMut, info: MessageInfo, receiver: Option<String>) -> Result<Response, BidError> {
+fn retract(
+    deps: DepsMut,
+    info: MessageInfo,
+    receiver: Option<String>,
+) -> Result<Response, BidError> {
     if !BID_CLOSED.load(deps.storage)? {
         return Err(BidError::BidNotClosed);
     }
 
     let recipient = if let Some(addr) = receiver {
         deps.api.addr_validate(&addr)?
-    }  else {
+    } else {
         info.sender
     };
 
-    let bid = BID_BY_ADDR.load(deps.storage, recipient.clone()).map_err(|_| BidError::NoBidPresent)?;
+    if BID_WINNER.load(deps.storage)?.unwrap() == recipient {
+        return Err(BidError::BidWinner);
+    }
+
+    if BID_RETRACTED_FOR_ADDR.has(deps.storage, recipient.clone()) {
+        return Err(BidError::RetractAlreadyDone);
+    } else {
+        BID_RETRACTED_FOR_ADDR.save(deps.storage, recipient.clone(), &())?;
+    }
+
+    let bid = BID_BY_ADDR
+        .load(deps.storage, recipient.clone())
+        .map_err(|_| BidError::NoBidPresent)?;
 
     let retract_msg = CosmosMsg::Bank(BankMsg::Send {
-        to_address: OWNER.load(deps.storage)?.to_string(),
+        to_address: recipient.to_string(),
         amount: vec![Coin {
             denom: DENOM.load(deps.storage)?,
-            amount: bid.clone(),
+            amount: bid,
         }],
     });
 

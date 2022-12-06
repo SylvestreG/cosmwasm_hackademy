@@ -11,7 +11,7 @@ pub struct BidInstantiateMsg {
 pub enum BidExecuteMsg {
     Bid {},
     Close {},
-    Retract { receiver: Option<String>},
+    Retract { receiver: Option<String> },
 }
 
 #[cw_serde]
@@ -30,7 +30,7 @@ pub enum BidQueryMsg {
     #[returns(Option<Addr>)]
     HighestBidder {},
     #[returns(Option<Addr>)]
-    BidWinner
+    BidWinner,
 }
 
 #[cw_serde]

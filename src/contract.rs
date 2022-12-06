@@ -10,7 +10,7 @@ use crate::error::BidError;
 use crate::msg::{BidExecuteMsg, BidInstantiateMsg, BidMigrateMsg, BidQueryMsg};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response};
+use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 
 // version info for migration info
@@ -39,7 +39,7 @@ pub fn execute(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: BidQueryMsg) -> Result<Binary, BidError> {
+pub fn query(deps: Deps, env: Env, msg: BidQueryMsg) -> StdResult<Binary> {
     _query(deps, env, msg)
 }
 

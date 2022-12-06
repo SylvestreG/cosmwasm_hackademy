@@ -15,7 +15,7 @@ pub fn _instantiate(
         info.sender
     };
 
-    let denom = msg.denom.unwrap_or("uatom".to_string());
+    let denom = msg.denom.unwrap_or_else(|| "uatom".to_string());
 
     OWNER.save(deps.storage, &owner)?;
     DENOM.save(deps.storage, &denom)?;
