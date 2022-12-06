@@ -15,7 +15,7 @@ jobs:
   cw-bid:
     docker:
       - image: rust:1.63.0
-    working_directory: ~/project/contracts/cw-bid
+    working_directory: ~/project/
     steps:
       - checkout:
           path: ~/project
